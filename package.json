@@ -5,6 +5,9 @@
   "main": "src/core/index.js",
   "type": "module",
   "scripts": {
+    "start": "node cli.js",
+    "edit": "node cli.js",
+    "demo": "node demo.js",
     "dev": "node src/core/index.js",
     "analyze": "node src/core/analyze.js",
     "learn-style": "node src/learners/youtube-style-learner.js",
