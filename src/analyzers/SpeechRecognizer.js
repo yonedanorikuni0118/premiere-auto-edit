@@ -11,6 +11,8 @@ export class SpeechRecognizer {
     this.config = config;
     this.openai = new OpenAI({
       apiKey: config.openai.apiKey,
+      timeout: 120000, // 2分のタイムアウト
+      maxRetries: 2,
     });
   }
 
@@ -22,29 +24,55 @@ export class SpeechRecognizer {
   async transcribe(audioPath) {
     console.log(`🎤 音声認識開始: ${audioPath}`);
 
-    try {
-      // Whisper APIで文字起こし
-      const transcription = await this.openai.audio.transcriptions.create({
-        file: fs.createReadStream(audioPath),
-        model: this.config.openai.model,
-        language: this.config.openai.language,
-        response_format: 'verbose_json',
-        timestamp_granularities: ['word', 'segment'],
-      });
+    const maxRetries = 3;
+    let lastError;
 
-      console.log(`✅ 文字起こし完了: ${transcription.text?.length || 0}文字`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          console.log(`🔄 リトライ中... (${attempt}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // 指数バックオフ
+        }
 
-      return {
-        text: transcription.text,
-        segments: transcription.segments || [],
-        words: transcription.words || [],
-        language: transcription.language,
-        duration: transcription.duration,
-      };
-    } catch (error) {
-      console.error('❌ 音声認識エラー:', error.message);
-      throw error;
+        // Whisper APIで文字起こし
+        console.log(`   ファイルサイズ: ${(fs.statSync(audioPath).size / 1024 / 1024).toFixed(2)}MB`);
+
+        const transcription = await this.openai.audio.transcriptions.create({
+          file: fs.createReadStream(audioPath),
+          model: this.config.openai.model,
+          language: this.config.openai.language,
+          response_format: 'verbose_json',
+          timestamp_granularities: ['segment'],
+        });
+
+        console.log(`✅ 文字起こし完了: ${transcription.text?.length || 0}文字`);
+
+        return {
+          text: transcription.text,
+          segments: transcription.segments || [],
+          words: transcription.words || [],
+          language: transcription.language,
+          duration: transcription.duration,
+        };
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ 音声認識エラー (試行 ${attempt}/${maxRetries}):`, error.message);
+
+        // リトライ不可能なエラーの場合は即座に終了
+        if (error.status === 401 || error.status === 403) {
+          console.error('❌ 認証エラー: API Keyを確認してください');
+          throw error;
+        }
+        if (error.status === 413) {
+          console.error('❌ ファイルサイズが大きすぎます (最大25MB)');
+          throw error;
+        }
+      }
     }
+
+    // すべてのリトライが失敗した場合
+    console.error(`❌ ${maxRetries}回の試行後も失敗しました`);
+    throw lastError;
   }
 
   /**

@@ -169,11 +169,11 @@ async function main() {
 
 📊 処理結果:
    処理時間: ${result.processingTime}秒
-   元の長さ: ${result.cutResult.stats.totalDuration.toFixed(1)}秒
-   最終長さ: ${result.cutResult.stats.finalDuration.toFixed(1)}秒
-   短縮率: ${result.cutResult.stats.reductionRate}
-   カット数: ${result.cutResult.stats.totalCuts}
-   テロップ数: ${result.captionStats.totalCaptions}
+   元の長さ: ${Number(result.cutResult.stats.totalDuration || 0).toFixed(1)}秒
+   最終長さ: ${Number(result.cutResult.stats.finalDuration || 0).toFixed(1)}秒
+   短縮率: ${result.cutResult.stats.reductionRate || '0%'}
+   カット数: ${result.cutResult.stats.totalCuts || 0}
+   テロップ数: ${result.captionStats.totalCaptions || 0}
 
 📦 生成されたファイル:
    ✓ ${path.basename(result.exportedFiles.xml)}

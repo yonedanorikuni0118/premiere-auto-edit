@@ -84,32 +84,39 @@ export class PremiereIntegration {
     xml += `            <track>\n`;
 
     for (const caption of captions) {
-      const startFrame = Math.floor(caption.start * frameRate);
-      const endFrame = Math.floor(caption.end * frameRate);
+      const startFrame = Math.floor((caption.start || 0) * frameRate);
+      const endFrame = Math.floor((caption.end || 0) * frameRate);
+      const duration = endFrame - startFrame;
+
+      // スタイル情報の安全な取得
+      const style = caption.style || {};
+      const fontFamily = style.fontFamily || 'Arial';
+      const fontSize = style.fontSize || 48;
+      const color = style.color || '#FFFFFF';
 
       xml += `              <clipitem id="caption-${caption.id}">
                 <name>Caption ${caption.id}</name>
                 <start>${startFrame}</start>
                 <end>${endFrame}</end>
                 <in>0</in>
-                <out>${endFrame - startFrame}</out>
+                <out>${duration}</out>
                 <effect>
                   <name>Text</name>
                   <parameter>
                     <parameterid>str</parameterid>
-                    <value>${this.escapeXml(caption.text)}</value>
+                    <value>${this.escapeXml(caption.text || '')}</value>
                   </parameter>
                   <parameter>
                     <parameterid>font</parameterid>
-                    <value>${caption.style.fontFamily}</value>
+                    <value>${fontFamily}</value>
                   </parameter>
                   <parameter>
                     <parameterid>size</parameterid>
-                    <value>${caption.style.fontSize}</value>
+                    <value>${fontSize}</value>
                   </parameter>
                   <parameter>
                     <parameterid>color</parameterid>
-                    <value>${caption.style.color}</value>
+                    <value>${color}</value>
                   </parameter>
                 </effect>
               </clipitem>

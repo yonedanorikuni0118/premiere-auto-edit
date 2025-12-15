@@ -1,6 +1,7 @@
 import config from '../../config/default.config.js';
 import { VideoAnalyzer } from '../analyzers/VideoAnalyzer.js';
 import { SpeechRecognizer } from '../analyzers/SpeechRecognizer.js';
+import { DemoSpeechRecognizer } from '../analyzers/DemoSpeechRecognizer.js';
 import { AutoCutDetector } from '../generators/AutoCutDetector.js';
 import { CaptionGenerator } from '../generators/CaptionGenerator.js';
 import { YouTubeStyleLearner } from '../learners/YouTubeStyleLearner.js';
@@ -42,7 +43,21 @@ export class AutoEditPipeline {
       // 2. 音声抽出と認識
       console.log('\n【ステップ 2/5】音声認識・文字起こし');
       const audioPath = await this.videoAnalyzer.extractAudio(videoPath);
-      const speechAnalysis = await this.speechRecognizer.analyzeSpeech(audioPath);
+
+      let speechAnalysis;
+      try {
+        speechAnalysis = await this.speechRecognizer.analyzeSpeech(audioPath);
+      } catch (error) {
+        // OpenAI APIエラーの場合、デモモードにフォールバック
+        if (error.message.includes('Connection error') || error.message.includes('ECONNRESET')) {
+          console.log('\n⚠️  OpenAI APIへの接続に失敗しました');
+          console.log('   デモモードで続行します（サンプルデータを使用）\n');
+          const demoRecognizer = new DemoSpeechRecognizer(this.config);
+          speechAnalysis = await demoRecognizer.analyzeSpeech(audioPath);
+        } else {
+          throw error;
+        }
+      }
 
       console.log(`\n📊 音声解析統計:`);
       console.log(`   - 総単語数: ${speechAnalysis.stats.totalWords}`);

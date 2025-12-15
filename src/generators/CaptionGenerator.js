@@ -19,11 +19,14 @@ export class CaptionGenerator {
     const styledCaptions = captions.map((caption, index) => {
       const style = this.determineStyle(caption, index, learnedStyle);
 
+      const start = caption.start + (this.config.caption.displayOffset || 0);
+      const end = caption.end + (this.config.caption.displayOffset || 0);
+
       return {
         id: index + 1,
         text: caption.text,
-        start: caption.start + this.config.caption.displayOffset,
-        end: caption.end + this.config.caption.displayOffset,
+        start: start,
+        end: end,
         duration: caption.duration,
         style: style,
       };
@@ -40,6 +43,11 @@ export class CaptionGenerator {
     // デフォルトスタイルから開始
     const style = { ...this.config.caption.defaultStyle };
 
+    // スタイルプロパティの確実な初期化
+    style.fontSize = style.fontSize || 48;
+    style.fontFamily = style.fontFamily || 'Arial';
+    style.color = style.color || '#FFFFFF';
+
     // 学習したスタイルがあれば適用
     if (learnedStyle && learnedStyle.captionPattern) {
       // 将来的にスタイル学習機能を実装
@@ -47,12 +55,12 @@ export class CaptionGenerator {
     }
 
     // 特殊ケース: 短いテキストは大きめのフォントに
-    if (caption.text.length < 10) {
+    if (caption.text && caption.text.length < 10) {
       style.fontSize = Math.floor(style.fontSize * 1.2);
     }
 
     // 長いテキストは小さめのフォントに
-    if (caption.text.length > 30) {
+    if (caption.text && caption.text.length > 30) {
       style.fontSize = Math.floor(style.fontSize * 0.85);
     }
 
