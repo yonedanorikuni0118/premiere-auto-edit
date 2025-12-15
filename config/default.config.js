@@ -1,0 +1,94 @@
+import 'dotenv/config';
+
+export default {
+  // OpenAI Whisper API設定
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: 'whisper-1',
+    language: 'ja', // 日本語に最適化
+  },
+
+  // 動画解析設定
+  video: {
+    // サポートする形式
+    supportedFormats: ['.mp4', '.mov', '.avi', '.mkv'],
+    // 一時ファイルの保存先
+    tempDir: './data/cache',
+  },
+
+  // 自動カット設定
+  autoCut: {
+    // 無音検出の閾値（デシベル）
+    silenceThreshold: -40,
+    // 無音の最小継続時間（秒）
+    silenceMinDuration: 0.5,
+    // カット前後のバッファ（秒）
+    cutBuffer: 0.1,
+    // フィラーワード検出
+    fillerWords: ['えー', 'あー', 'えっと', 'まあ', 'そうですね'],
+    // 最小クリップ長（秒）- これより短いクリップは削除
+    minClipDuration: 1.0,
+  },
+
+  // テロップ設定
+  caption: {
+    // 最大文字数（1行あたり）
+    maxCharsPerLine: 20,
+    // 最大行数
+    maxLines: 2,
+    // デフォルトスタイル
+    defaultStyle: {
+      fontSize: 48,
+      fontFamily: 'Arial',
+      color: '#FFFFFF',
+      strokeColor: '#000000',
+      strokeWidth: 3,
+      position: 'bottom', // 'top', 'middle', 'bottom'
+      yOffset: 100, // 画面下端からのオフセット（ピクセル）
+    },
+    // 表示タイミング調整（秒）
+    displayOffset: 0,
+    // 最小表示時間（秒）
+    minDisplayDuration: 1.0,
+  },
+
+  // YouTubeスタイル学習設定
+  styleLearn: {
+    // 分析するサンプル動画数
+    sampleVideos: 5,
+    // カットパターン分析
+    cutPattern: {
+      // カット間隔のヒストグラム分析
+      intervalBins: 20,
+      // シーンチェンジ検出の感度
+      sceneChangeThreshold: 0.3,
+    },
+    // テロップスタイル分析
+    captionPattern: {
+      // OCRを使用してテロップを検出
+      useOCR: false, // 将来の拡張用
+      // タイミング分析
+      timingAnalysis: true,
+      // 位置分析
+      positionAnalysis: true,
+    },
+  },
+
+  // Premiere Pro連携設定
+  premiere: {
+    // エクスポート形式
+    exportFormat: 'xml', // 'xml' or 'edl'
+    // プロジェクト設定
+    project: {
+      frameRate: 30,
+      width: 1920,
+      height: 1080,
+    },
+  },
+
+  // ログ設定
+  logging: {
+    level: 'info', // 'error', 'warn', 'info', 'debug'
+    file: './logs/app.log',
+  },
+};

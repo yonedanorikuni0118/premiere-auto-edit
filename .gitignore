@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+
+# Output files
+output/
+logs/
+
+# Temporary files
+data/cache/
+data/styles/*.mp4
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+test-videos/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Build files
+dist/
+build/
