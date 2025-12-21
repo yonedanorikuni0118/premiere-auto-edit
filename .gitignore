@@ -37,3 +37,8 @@ test-videos/
 # Build files
 dist/
 build/
+
+# Test files
+test-*.js
+test-*.xml
+output-*/
