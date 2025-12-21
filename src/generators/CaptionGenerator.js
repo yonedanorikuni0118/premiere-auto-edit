@@ -22,9 +22,15 @@ export class CaptionGenerator {
       const start = caption.start + (this.config.caption.displayOffset || 0);
       const end = caption.end + (this.config.caption.displayOffset || 0);
 
+      // YouTubeスタイルの場合は句読点を削除
+      let text = caption.text;
+      if (this.config.caption.youtubeStyle) {
+        text = this.cleanTextForYouTube(text);
+      }
+
       return {
         id: index + 1,
-        text: caption.text,
+        text: text,
         start: start,
         end: end,
         duration: caption.duration,
@@ -34,6 +40,30 @@ export class CaptionGenerator {
 
     console.log(`✅ ${styledCaptions.length}個のテロップを生成`);
     return styledCaptions;
+  }
+
+  /**
+   * YouTubeスタイル用にテキストをクリーンアップ
+   * 句読点を削除して読みやすくする
+   */
+  cleanTextForYouTube(text) {
+    if (!text) return text;
+
+    let cleaned = text;
+
+    // 設定された句読点を削除
+    const punctuationList = this.config.caption.punctuationToRemove || ['。', '、', '，', '．', '！', '？'];
+    for (const punct of punctuationList) {
+      cleaned = cleaned.replace(new RegExp(punct, 'g'), '');
+    }
+
+    // 連続する空白を1つにまとめる
+    cleaned = cleaned.replace(/\s+/g, ' ');
+
+    // 前後の空白を削除
+    cleaned = cleaned.trim();
+
+    return cleaned;
   }
 
   /**

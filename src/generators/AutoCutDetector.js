@@ -42,16 +42,20 @@ export class AutoCutDetector {
       });
     }
 
-    // 3. シーン変化をマーカーとして記録（カットではなく参考情報）
+    // 3. シーン変化からカット候補を生成
+    // 設定に応じて実際のカットまたはマーカーとして記録
     for (const sceneTime of videoAnalysis.sceneChanges) {
+      const useAscut = this.config.autoCut.useSceneChangesForCuts;
+      const buffer = this.config.autoCut.sceneChangeBuffer || 0.05;
+
       candidates.push({
-        start: sceneTime,
-        end: sceneTime,
-        duration: 0,
+        start: useAscut ? Math.max(0, sceneTime - buffer) : sceneTime,
+        end: useAscut ? sceneTime + buffer : sceneTime,
+        duration: useAscut ? buffer * 2 : 0,
         type: 'scene_change',
         reason: 'シーン変化',
-        confidence: 0.5,
-        isMarker: true,
+        confidence: 0.6,
+        isMarker: !useAscut, // useAscut=true なら isMarker=false（実際のカット）
       });
     }
 
@@ -127,6 +131,16 @@ export class AutoCutDetector {
 
     // カット候補のうち、実際にカットする部分のみ抽出（マーカーを除外）
     const actualCuts = cutCandidates.filter(c => !c.isMarker);
+
+    // カットが1つもない場合は、動画全体を1つのクリップとして保持
+    if (actualCuts.length === 0) {
+      keepClips.push({
+        start: 0,
+        end: totalDuration,
+        duration: totalDuration,
+      });
+      return keepClips;
+    }
 
     for (const cut of actualCuts) {
       // カット前の部分を保持

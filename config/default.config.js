@@ -28,6 +28,10 @@ export default {
     fillerWords: ['えー', 'あー', 'えっと', 'まあ', 'そうですね'],
     // 最小クリップ長（秒）- これより短いクリップは削除
     minClipDuration: 1.0,
+    // シーン変化をカットとして使用するか（true=使用, false=マーカーのみ）
+    useSceneChangesForCuts: true,
+    // シーン変化カットの前後バッファ（秒）
+    sceneChangeBuffer: 0.05,
   },
 
   // テロップ設定
@@ -50,6 +54,10 @@ export default {
     displayOffset: 0,
     // 最小表示時間（秒）
     minDisplayDuration: 1.0,
+    // YouTubeスタイル（句読点を削除）
+    youtubeStyle: true,
+    // 削除する句読点リスト
+    punctuationToRemove: ['。', '、', '，', '．', '！', '？'],
   },
 
   // YouTubeスタイル学習設定
