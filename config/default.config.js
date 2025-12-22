@@ -34,6 +34,28 @@ export default {
     sceneChangeBuffer: 0.05,
   },
 
+  // 高度なカット検出設定（実験的機能）
+  advancedDetection: {
+    // 話速度分析
+    speechRateAnalysis: {
+      enabled: false, // デフォルトはOFF（実験的機能）
+      minWPM: 150, // 最小話速度（Words Per Minute）
+      maxWPM: 250, // 最大話速度
+    },
+    // ポーズ（間）検出
+    pauseDetection: {
+      enabled: false, // デフォルトはOFF（実験的機能）
+      minDuration: 1.0, // 検出する最小ポーズ時間（秒）
+      maxDuration: 3.0, // 検出する最大ポーズ時間（秒）
+      bufferBefore: 0.2, // ポーズ前のバッファ（秒）
+      bufferAfter: 0.2, // ポーズ後のバッファ（秒）
+    },
+    // 感情分析（基本的な実装）
+    sentimentAnalysis: {
+      enabled: false, // デフォルトはOFF（実験的機能）
+    },
+  },
+
   // テロップ設定
   caption: {
     // 最大文字数（1行あたり）

@@ -1,3 +1,5 @@
+import { SpeechAnalyzer } from '../analyzers/SpeechAnalyzer.js';
+
 /**
  * 自動カット検出クラス
  * 動画解析と音声認識の結果を統合して、最適なカット位置を決定
@@ -5,6 +7,7 @@
 export class AutoCutDetector {
   constructor(config) {
     this.config = config;
+    this.speechAnalyzer = new SpeechAnalyzer(config);
   }
 
   /**
@@ -237,8 +240,18 @@ export class AutoCutDetector {
     const rawCandidates = this.generateCutCandidates(videoAnalysis, speechAnalysis);
     console.log(`   - ${rawCandidates.length}個の候補を検出`);
 
+    // 1.5. 高度な分析を実行（有効な場合）
+    let advancedCandidates = [];
+    if (this.isAdvancedDetectionEnabled()) {
+      const advancedResult = this.speechAnalyzer.analyzeAll(speechAnalysis);
+      advancedCandidates = advancedResult.candidates;
+    }
+
+    // すべてのカット候補を統合
+    const allCandidates = [...rawCandidates, ...advancedCandidates];
+
     // 2. カット候補をマージ
-    const mergedCandidates = this.mergeCutCandidates(rawCandidates);
+    const mergedCandidates = this.mergeCutCandidates(allCandidates);
     console.log(`   - ${mergedCandidates.length}個にマージ`);
 
     // 3. フィルタリング
@@ -264,5 +277,19 @@ export class AutoCutDetector {
       keepClips,
       stats,
     };
+  }
+
+  /**
+   * 高度な検出機能が有効かチェック
+   */
+  isAdvancedDetectionEnabled() {
+    const config = this.config.advancedDetection;
+    if (!config) return false;
+
+    return (
+      config.speechRateAnalysis?.enabled ||
+      config.pauseDetection?.enabled ||
+      config.sentimentAnalysis?.enabled
+    );
   }
 }
