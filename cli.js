@@ -26,6 +26,9 @@ XMLファイルを生成します。
   -s, --style <スタイル名>        保存済みのYouTubeスタイルを使用
   -t, --threshold <dB>           無音検出の閾値 (デフォルト: -40dB)
   -c, --chars <数>               テロップの1行最大文字数 (デフォルト: 20)
+  -p, --preview                  プレビュー動画を生成
+  --with-captions                プレビューに字幕を焼き込む (--previewと併用)
+  --output-format <形式>         出力形式 (mp4/mov/avi, デフォルト: mp4)
   -h, --help                     ヘルプを表示
 
 【例】
@@ -44,11 +47,18 @@ XMLファイルを生成します。
   # YouTubeスタイルを使用
   node cli.js ./my-video.mp4 --style my-channel-style
 
+  # プレビュー動画を生成
+  node cli.js ./my-video.mp4 --preview
+
+  # 字幕を焼き込んだプレビューを生成
+  node cli.js ./my-video.mp4 --preview --with-captions
+
 【出力ファイル】
   ✓ <動画名>_project.xml  - Premiere Pro XMLプロジェクト
   ✓ <動画名>_edl.edl      - EDL (Edit Decision List)
   ✓ <動画名>_project.json - JSONプロジェクト（全情報）
   ✓ <動画名>_report.csv   - 編集レポート
+  ✓ <動画名>_preview.mp4  - プレビュー動画 (--previewオプション使用時)
 
 【Premiere Proでの使い方】
   1. Premiere Proを開く
@@ -78,6 +88,9 @@ function parseArgs(args) {
     styleName: null,
     silenceThreshold: -40,
     maxCharsPerLine: 20,
+    generatePreview: false,
+    withCaptions: false,
+    outputFormat: 'mp4',
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -94,6 +107,12 @@ function parseArgs(args) {
       options.silenceThreshold = parseFloat(args[++i]);
     } else if (arg === '-c' || arg === '--chars') {
       options.maxCharsPerLine = parseInt(args[++i], 10);
+    } else if (arg === '--preview' || arg === '-p') {
+      options.generatePreview = true;
+    } else if (arg === '--with-captions') {
+      options.withCaptions = true;
+    } else if (arg === '--output-format') {
+      options.outputFormat = args[++i];
     } else if (!arg.startsWith('-')) {
       options.videoPath = arg;
     }
@@ -152,6 +171,13 @@ async function main() {
   if (options.styleName) {
     console.log(`   スタイル: ${options.styleName}`);
   }
+  if (options.generatePreview) {
+    console.log(`   プレビュー生成: 有効`);
+    if (options.withCaptions) {
+      console.log(`   字幕焼き込み: 有効`);
+    }
+    console.log(`   出力形式: ${options.outputFormat}`);
+  }
   console.log('');
 
   try {
@@ -159,6 +185,9 @@ async function main() {
     const result = await pipeline.processVideo(options.videoPath, {
       outputDir: options.outputDir,
       styleName: options.styleName,
+      generatePreview: options.generatePreview,
+      withCaptions: options.withCaptions,
+      outputFormat: options.outputFormat,
     });
 
     if (result.success) {
@@ -179,9 +208,9 @@ async function main() {
    ✓ ${path.basename(result.exportedFiles.xml)}
    ✓ ${path.basename(result.exportedFiles.edl)}
    ✓ ${path.basename(result.exportedFiles.json)}
-   ✓ ${path.basename(result.exportedFiles.csv)}
+   ✓ ${path.basename(result.exportedFiles.csv)}${result.previewVideo ? `\n   ✓ ${path.basename(result.previewVideo)} (プレビュー動画)` : ''}
 
-🎬 次のステップ:
+🎬 次のステップ:${result.previewVideo ? `\n   0. プレビュー動画で確認: ${path.basename(result.previewVideo)}` : ''}
    1. Premiere Proを開く
    2. ファイル → 読み込み
    3. ${path.basename(result.exportedFiles.xml)} を選択

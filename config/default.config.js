@@ -116,6 +116,30 @@ export default {
     },
   },
 
+  // プレビュー動画レンダリング設定
+  rendering: {
+    // デフォルト出力形式
+    defaultFormat: 'mp4',
+    // サポートする出力形式
+    supportedFormats: ['mp4', 'mov', 'avi'],
+    // ビデオエンコード設定
+    video: {
+      codec: 'libx264',
+      preset: 'medium', // ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+      crf: 23, // 品質 (0-51, 低いほど高品質)
+    },
+    // オーディオエンコード設定
+    audio: {
+      codec: 'aac',
+      bitrate: '192k',
+    },
+    // テロップ焼き込み設定
+    burnCaptions: {
+      enabled: false, // デフォルトはOFF
+      fontPath: null, // nullの場合はシステムフォントを使用
+    },
+  },
+
   // ログ設定
   logging: {
     level: 'info', // 'error', 'warn', 'info', 'debug'

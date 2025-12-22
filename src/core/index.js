@@ -6,6 +6,7 @@ import { AutoCutDetector } from '../generators/AutoCutDetector.js';
 import { CaptionGenerator } from '../generators/CaptionGenerator.js';
 import { YouTubeStyleLearner } from '../learners/YouTubeStyleLearner.js';
 import { PremiereIntegration } from '../premiere/PremiereIntegration.js';
+import { VideoRenderer } from '../renderers/VideoRenderer.js';
 
 /**
  * メインの自動編集パイプライン
@@ -21,6 +22,7 @@ export class AutoEditPipeline {
     this.captionGenerator = new CaptionGenerator(this.config);
     this.styleLearner = new YouTubeStyleLearner(this.config);
     this.premiereIntegration = new PremiereIntegration(this.config);
+    this.videoRenderer = new VideoRenderer(this.config);
   }
 
   /**
@@ -118,6 +120,27 @@ export class AutoEditPipeline {
         cutResult.stats
       );
 
+      // 7. プレビュー動画生成（オプション）
+      let previewVideo = null;
+      if (options.generatePreview) {
+        console.log('\n【プレビュー】プレビュー動画生成');
+        try {
+          previewVideo = await this.videoRenderer.renderPreview(
+            videoPath,
+            cutResult.keepClips,
+            {
+              outputPath: outputDir,
+              format: options.outputFormat || 'mp4',
+              withCaptions: options.withCaptions || false,
+              captions: options.withCaptions ? captions : [],
+            }
+          );
+        } catch (error) {
+          console.error('⚠️  プレビュー動画生成エラー:', error.message);
+          console.log('   → Premiere Proファイルは正常に生成されています');
+        }
+      }
+
       // 完了
       const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`\n✅ ====== 処理完了 (${elapsedTime}秒) ======\n`);
@@ -133,6 +156,7 @@ export class AutoEditPipeline {
         captions,
         captionStats,
         exportedFiles,
+        previewVideo,
         processingTime: elapsedTime,
       };
     } catch (error) {
