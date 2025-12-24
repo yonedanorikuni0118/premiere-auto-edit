@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import fs from 'fs-extra';
 import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
 
 /**
  * 音声認識クラス
@@ -14,6 +15,94 @@ export class SpeechRecognizer {
       timeout: 120000, // 2分のタイムアウト
       maxRetries: 2,
     });
+    this.maxFileSize = 24 * 1024 * 1024; // 24MB（25MB制限に対して安全マージン）
+    this.chunkDuration = 600; // 10分ごとに分割（デフォルト）
+  }
+
+  /**
+   * ファイルサイズをチェック
+   * @param {string} filePath - ファイルパス
+   * @returns {number} ファイルサイズ（バイト）
+   */
+  getFileSize(filePath) {
+    return fs.statSync(filePath).size;
+  }
+
+  /**
+   * 音声ファイルを分割
+   * @param {string} audioPath - 音声ファイルパス
+   * @param {number} chunkDuration - チャンクの長さ（秒）
+   * @returns {Promise<Array>} 分割されたファイルのパス配列
+   */
+  async splitAudioFile(audioPath, chunkDuration = this.chunkDuration) {
+    console.log(`🔪 音声ファイルを分割中... (${chunkDuration}秒ごと)`);
+
+    const chunks = [];
+    const outputDir = path.join(path.dirname(audioPath), 'chunks');
+    await fs.ensureDir(outputDir);
+
+    // 音声の総時間を取得
+    const duration = await this.getAudioDuration(audioPath);
+    const numChunks = Math.ceil(duration / chunkDuration);
+
+    console.log(`   総時間: ${duration.toFixed(2)}秒 → ${numChunks}個のチャンクに分割`);
+
+    for (let i = 0; i < numChunks; i++) {
+      const startTime = i * chunkDuration;
+      const chunkPath = path.join(outputDir, `chunk_${i.toString().padStart(3, '0')}.wav`);
+
+      await this.extractAudioChunk(audioPath, chunkPath, startTime, chunkDuration);
+      chunks.push({
+        path: chunkPath,
+        index: i,
+        startTime,
+        endTime: Math.min(startTime + chunkDuration, duration),
+      });
+
+      console.log(`   ✓ チャンク ${i + 1}/${numChunks} 作成完了`);
+    }
+
+    return chunks;
+  }
+
+  /**
+   * 音声の長さを取得
+   * @param {string} audioPath - 音声ファイルパス
+   * @returns {Promise<number>} 音声の長さ（秒）
+   */
+  getAudioDuration(audioPath) {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(audioPath, (err, metadata) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(metadata.format.duration);
+        }
+      });
+    });
+  }
+
+  /**
+   * 音声の一部を抽出
+   * @param {string} inputPath - 入力ファイルパス
+   * @param {string} outputPath - 出力ファイルパス
+   * @param {number} startTime - 開始時間（秒）
+   * @param {number} duration - 長さ（秒）
+   * @returns {Promise<void>}
+   */
+  extractAudioChunk(inputPath, outputPath, startTime, duration) {
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .setStartTime(startTime)
+        .setDuration(duration)
+        .audioCodec('pcm_s16le')
+        .audioChannels(1)
+        .audioFrequency(16000)
+        .output(outputPath)
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .run();
+    });
   }
 
   /**
@@ -24,6 +113,27 @@ export class SpeechRecognizer {
   async transcribe(audioPath) {
     console.log(`🎤 音声認識開始: ${audioPath}`);
 
+    const fileSize = this.getFileSize(audioPath);
+    const fileSizeMB = (fileSize / 1024 / 1024).toFixed(2);
+    console.log(`   ファイルサイズ: ${fileSizeMB}MB`);
+
+    // ファイルサイズチェック：24MBを超える場合は分割処理
+    if (fileSize > this.maxFileSize) {
+      console.log(`⚠️  ファイルサイズが制限を超えています (${fileSizeMB}MB > 24MB)`);
+      console.log(`🔄 自動分割モードに切り替えます...`);
+      return await this.transcribeWithSplitting(audioPath);
+    }
+
+    // 通常の文字起こし処理
+    return await this.transcribeSingleFile(audioPath);
+  }
+
+  /**
+   * 単一ファイルの文字起こし
+   * @param {string} audioPath - 音声ファイルパス
+   * @returns {Object} 文字起こし結果
+   */
+  async transcribeSingleFile(audioPath) {
     const maxRetries = 3;
     let lastError;
 
@@ -35,8 +145,6 @@ export class SpeechRecognizer {
         }
 
         // Whisper APIで文字起こし
-        console.log(`   ファイルサイズ: ${(fs.statSync(audioPath).size / 1024 / 1024).toFixed(2)}MB`);
-
         const transcription = await this.openai.audio.transcriptions.create({
           file: fs.createReadStream(audioPath),
           model: this.config.openai.model,
@@ -73,6 +181,69 @@ export class SpeechRecognizer {
     // すべてのリトライが失敗した場合
     console.error(`❌ ${maxRetries}回の試行後も失敗しました`);
     throw lastError;
+  }
+
+  /**
+   * 大きなファイルを分割して文字起こし
+   * @param {string} audioPath - 音声ファイルパス
+   * @returns {Object} 文字起こし結果
+   */
+  async transcribeWithSplitting(audioPath) {
+    try {
+      // 音声ファイルを分割
+      const chunks = await this.splitAudioFile(audioPath);
+      console.log(`📝 ${chunks.length}個のチャンクを順次処理します...`);
+
+      const allSegments = [];
+      const allWords = [];
+      let fullText = '';
+      let totalDuration = 0;
+
+      // 各チャンクを処理
+      for (const chunk of chunks) {
+        console.log(`\n🎤 チャンク ${chunk.index + 1}/${chunks.length} を処理中...`);
+
+        const result = await this.transcribeSingleFile(chunk.path);
+
+        // タイムスタンプを調整してマージ
+        const adjustedSegments = result.segments.map(seg => ({
+          ...seg,
+          start: seg.start + chunk.startTime,
+          end: seg.end + chunk.startTime,
+        }));
+
+        const adjustedWords = result.words.map(word => ({
+          ...word,
+          start: word.start + chunk.startTime,
+          end: word.end + chunk.startTime,
+        }));
+
+        allSegments.push(...adjustedSegments);
+        allWords.push(...adjustedWords);
+        fullText += result.text + ' ';
+        totalDuration = Math.max(totalDuration, chunk.endTime);
+
+        // チャンクファイルを削除
+        await fs.remove(chunk.path);
+      }
+
+      // chunksディレクトリを削除
+      const chunksDir = path.join(path.dirname(audioPath), 'chunks');
+      await fs.remove(chunksDir);
+
+      console.log(`\n✅ 全チャンクの文字起こし完了: ${fullText.length}文字`);
+
+      return {
+        text: fullText.trim(),
+        segments: allSegments,
+        words: allWords,
+        language: chunks.length > 0 ? 'ja' : undefined,
+        duration: totalDuration,
+      };
+    } catch (error) {
+      console.error(`❌ 分割処理中にエラーが発生しました:`, error.message);
+      throw error;
+    }
   }
 
   /**
